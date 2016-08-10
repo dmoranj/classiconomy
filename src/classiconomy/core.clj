@@ -1,21 +1,26 @@
 (ns classiconomy.core)
 
+(def RESOURCES [:food :tools :clothes])
 (def INITIAL-NEEDS {:food 50 :tools 10 :clothes 15})
 (def INITIAL-SAVINGS {:food 200 :tools 20 :clothes 100 :money 400})
-(def PRODUCTIONS {:food 50 :tools 10 :clothes 15})
+(def PRODUCTIONS {:food 80 :tools 20 :clothes 40})
 
 (defn get-initial[initial minimum]
   (let [variable (- 1 minimum)]
-    (apply hash-map (flatten (map #(list (first %) (int (* (+ minimum (* variable (Math/random))) (second %)))) initial)))
-    )
-  )
+    (apply hash-map (flatten (map #(list (first %) (int (* (+ minimum (* variable (Math/random))) (second %)))) initial)))))
+
+(defn get-productions[]
+  (let [resource (nth RESOURCES (int (* (Math/random) (count RESOURCES))))
+        base-value (resource PRODUCTIONS)
+        value (int (* base-value (+ 0.5 (* 0.5 (Math/random)))))]
+    { resource value } ))
 
 (defn create-individual
   "Create a random individual for the simulation."
   []
   {:needs (get-initial INITIAL-NEEDS 0.5)
    :savings (get-initial INITIAL-SAVINGS 0.5)
-   :produces (get-initial PRODUCTIONS 0)
+   :produces (get-initial (get-productions) 0)
    :reproduction 0})
 
 (defn create-initial-state
