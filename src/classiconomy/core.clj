@@ -26,7 +26,11 @@
 (defn create-initial-state
   "Create an initial state for the simulation"
   [n]
-  (repeatedly n create-individual))
+  {
+    :individuals (repeatedly n create-individual)
+    :data '()
+    }
+  )
 
 (defn reduce-resource[resource individual]
   "Reduce the amount of the selected resource from each of the individual supplies"
@@ -56,10 +60,6 @@
         reductors (map #(partial reduce-resource %) resources)]
       (reduce #(%2 %1) individual reductors)))
 
-(defn advance-state[state]
-  "Apply all the operations of a single step over each of the individuals"
-  (map #(-> % add-resources reduce-resources) state))
-
 (defn gen-simulation
   "Generates a lazy sequence of simulation steps based on the initial state i"
   [i]
@@ -78,14 +78,22 @@
 (defn analyse-state
   "Generates a set of metrics about the current state of the simulation"
   [state]
+  (let [individuals (:individuals state)]
+    {
+    :offer (get-accumulate individuals :produces)
+    :demand (get-accumulate individuals :needs)
+    :savings (get-accumulate individuals :savings)
+    :population (get-population individuals)
+    }))
+
+(defn advance-state[state]
+  "Apply all the operations of a single step over each of the individuals"
   {
-    :offer (get-accumulate state :produces)
-    :demand (get-accumulate state :needs)
-    :savings (get-accumulate state :savings)
-    :population (get-population state)
-    })
+    :individuals (map #(-> % add-resources reduce-resources) (:individuals state))
+    :data (analyse-state state)
+  })
 
 (defn run-simulation
   "Run a simulation with n individuals for t iterations"
   [n t]
-  (take 1 (drop t (gen-simulation (create-initial-state n)))))
+  (take t (gen-simulation (create-initial-state n))))
