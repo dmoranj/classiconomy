@@ -1,9 +1,14 @@
 (ns classiconomy.core)
 
 (def RESOURCES [:food :tools :clothes])
-(def INITIAL-NEEDS {:food 50 :tools 10 :clothes 15})
-(def INITIAL-SAVINGS {:food 200 :tools 20 :clothes 100 :money 400})
-(def PRODUCTIONS {:food 80 :tools 20 :clothes 40})
+(def INITIAL-NEEDS {:food 500 :tools 100 :clothes 150})
+(def INITIAL-SAVINGS {:food 2000 :tools 200 :clothes 1000 :money 4000})
+(def PRODUCTIONS {:food 800 :tools 200 :clothes 400})
+
+(defn safe-int[n]
+  (if (= n nil)
+    0
+    (int n)))
 
 (defn get-initial[initial minimum]
   (let [variable (- 1 minimum)]
@@ -22,15 +27,6 @@
    :savings (get-initial INITIAL-SAVINGS 0.5)
    :produces (get-initial (get-productions) 0)
    :reproduction 0})
-
-(defn create-initial-state
-  "Create an initial state for the simulation"
-  [n]
-  {
-    :individuals (repeatedly n create-individual)
-    :data '()
-    }
-  )
 
 (defn reduce-resource[resource individual]
   "Reduce the amount of the selected resource from each of the individual supplies"
@@ -60,11 +56,6 @@
         reductors (map #(partial reduce-resource %) resources)]
       (reduce #(%2 %1) individual reductors)))
 
-(defn gen-simulation
-  "Generates a lazy sequence of simulation steps based on the initial state i"
-  [i]
-  (lazy-seq (cons i (gen-simulation (advance-state i)))))
-
 (defn get-population
   "Get the total population of the simulation"
   [state]
@@ -77,21 +68,72 @@
 
 (defn analyse-state
   "Generates a set of metrics about the current state of the simulation"
-  [state]
-  (let [individuals (:individuals state)]
-    {
+  [individuals]
+  {
     :offer (get-accumulate individuals :produces)
     :demand (get-accumulate individuals :needs)
     :savings (get-accumulate individuals :savings)
     :population (get-population individuals)
-    }))
+    })
+
+(defn update-price[analysis prices resource]
+  (let [
+         offer (safe-int (-> analysis :offer resource))
+         demand (safe-int (-> analysis :demand resource))
+         price (safe-int (resource prices))
+         ]
+    (if (not= demand 0)
+      (int (* (/ offer demand) price))
+      0
+      )))
+
+(defn update-prices[analysis prices]
+  (map (partial update-price analysis prices) RESOURCES))
 
 (defn advance-state[state]
   "Apply all the operations of a single step over each of the individuals"
+  (let [
+         individuals (:individuals state)
+         analysis (analyse-state individuals)
+         ]
   {
-    :individuals (map #(-> % add-resources reduce-resources) (:individuals state))
-    :data (analyse-state state)
-  })
+    :individuals (map #(-> % add-resources reduce-resources) individuals)
+    :data analysis
+    :prices (update-prices analysis (:prices state))
+  }))
+
+(defn calculate-initial-price[analysis resource]
+  (let [
+         offer (safe-int (-> analysis :offer resource))
+         demand (safe-int (-> analysis :demand resource))
+         money-savings (safe-int (-> analysis :savings :money))
+         money (/ money-savings (count RESOURCES))
+         ]
+    (if (and (not= demand 0) (not= offer 0))
+      (int (* (/ offer demand) (/ money offer)))
+      0
+      )))
+
+(defn initial-prices[analysis]
+  (map (partial calculate-initial-price analysis) RESOURCES))
+
+(defn create-initial-state
+  "Create an initial state for the simulation"
+  [n]
+  (let [
+         initial-individuals (repeatedly n create-individual)
+         analysis (analyse-state initial-individuals)
+         ]
+    {
+      :individuals initial-individuals
+      :data analysis
+      :prices (initial-prices analysis)
+      }))
+
+(defn gen-simulation
+  "Generates a lazy sequence of simulation steps based on the initial state i"
+  [i]
+  (lazy-seq (cons i (gen-simulation (advance-state i)))))
 
 (defn run-simulation
   "Run a simulation with n individuals for t iterations"
