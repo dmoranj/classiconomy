@@ -1,9 +1,9 @@
 (ns classiconomy.core)
 
 (def RESOURCES [:food :tools :clothes])
-(def INITIAL-NEEDS {:food 500 :tools 100 :clothes 150})
+(def INITIAL-NEEDS {:food 500 :tools 100 :clothes 200})
 (def INITIAL-SAVINGS {:food 2000 :tools 200 :clothes 1000 :money 4000})
-(def PRODUCTIONS {:food 800 :tools 200 :clothes 400})
+(def PRODUCTIONS {:food 800 :tools 400 :clothes 600})
 
 (defn safe-int[n]
   (if (= n nil)
@@ -17,7 +17,7 @@
 (defn get-productions[]
   (let [resource (nth RESOURCES (int (* (Math/random) (count RESOURCES))))
         base-value (resource PRODUCTIONS)
-        value (int (* base-value (+ 0.5 (* 0.5 (Math/random)))))]
+        value (int (* base-value (+ 0.7 (* 0.3 (Math/random)))))]
     { resource value } ))
 
 (defn create-individual
@@ -31,16 +31,16 @@
 (defn reduce-resource[resource individual]
   "Reduce the amount of the selected resource from each of the individual supplies"
   (let [
-         current-food (get-in individual [:savings resource])
-         food-need (get-in individual [:needs resource])]
-    (assoc-in individual [:savings resource] (- current-food food-need))))
+         current-res (get-in individual [:savings resource])
+         res-need (get-in individual [:needs resource])]
+    (assoc-in individual [:savings resource] (- current-res res-need))))
 
 (defn add-resource[resource individual]
   "Add the amount of produced selected resource to the savings deposit"
   (let [
-         current-food (get-in individual [:savings resource])
-         food-produced (get-in individual [:produces resource])]
-    (assoc-in individual [:savings resource] (+ current-food food-produced))))
+         current-res (get-in individual [:savings resource])
+         res-produced (get-in individual [:produces resource])]
+    (assoc-in individual [:savings resource] (+ current-res res-produced))))
 
 (defn add-resources[individual]
   "Add all the productions of each resource to the corresponding savings for an individual"
@@ -82,13 +82,13 @@
          demand (safe-int (-> analysis :demand resource))
          price (safe-int (resource prices))
          ]
-    (if (not= demand 0)
-      (int (* (/ offer demand) price))
-      0
+    (if (not= offer 0)
+      [resource (int (* (/ demand offer) price))]
+      [resource 0]
       )))
 
 (defn update-prices[analysis prices]
-  (map (partial update-price analysis prices) RESOURCES))
+  (apply hash-map (flatten (map (partial update-price analysis prices) RESOURCES))))
 
 (defn advance-state[state]
   "Apply all the operations of a single step over each of the individuals"
@@ -110,12 +110,12 @@
          money (/ money-savings (count RESOURCES))
          ]
     (if (and (not= demand 0) (not= offer 0))
-      (int (* (/ offer demand) (/ money offer)))
-      0
+      [resource (int (* (/ demand offer) (/ money offer))) ]
+      [resource 0]
       )))
 
 (defn initial-prices[analysis]
-  (map (partial calculate-initial-price analysis) RESOURCES))
+  (apply hash-map (flatten (map (partial calculate-initial-price analysis) RESOURCES))))
 
 (defn create-initial-state
   "Create an initial state for the simulation"
